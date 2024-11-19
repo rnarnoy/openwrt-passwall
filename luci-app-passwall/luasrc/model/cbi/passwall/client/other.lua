@@ -11,7 +11,6 @@ local port_validate = function(self, value, t)
 end
 
 m = Map(appname)
-api.set_apply_on_parse(m)
 
 -- [[ Delay Settings ]]--
 s = m:section(TypedSection, "global_delay", translate("Delay Settings"))
@@ -162,6 +161,7 @@ if has_xray then
 	o = s_xray:option(ListValue, "fragment_packets", translate("Fragment Packets"), translate("\"1-3\" is for segmentation at TCP layer, applying to the beginning 1 to 3 data writes by the client. \"tlshello\" is for TLS client hello packet fragmentation."))
 	o.default = "tlshello"
 	o:value("tlshello", "tlshello")
+	o:value("1-1", "1-1")
 	o:value("1-2", "1-2")
 	o:value("1-3", "1-3")
 	o:value("1-5", "1-5")
@@ -174,6 +174,9 @@ if has_xray then
 	o = s_xray:option(Value, "fragment_interval", translate("Fragment Interval"), translate("Fragmentation interval (ms)"))
 	o.default = "10-20"
 	o:depends("fragment", true)
+
+	o = s_xray:option(Flag, "noise", translate("Noise"), translate("UDP noise, Under some circumstances it can bypass some UDP based protocol restrictions."))
+	o.default = 0
 
 	o = s_xray:option(Flag, "sniffing_override_dest", translate("Override the connection destination address"), translate("Override the connection destination address with the sniffed domain."))
 	o.default = 0
@@ -188,6 +191,41 @@ if has_xray then
 
 	o = s_xray:option(Value, "buffer_size", translate("Buffer Size"), translate("Buffer size for every connection (kB)"))
 	o.datatype = "uinteger"
+
+	s_xray_noise = m:section(TypedSection, "xray_noise_packets", translate("Xray Noise Packets"),"<font color='red'>" .. translate("To send noise packets, select \"Noise\" in Xray Settings.") .. "</font>")
+	s_xray_noise.template = "cbi/tblsection"
+	s_xray_noise.sortable = true
+	s_xray_noise.anonymous = true
+	s_xray_noise.addremove = true
+
+	s_xray_noise.create = function(e, t)
+		TypedSection.create(e, api.gen_short_uuid())
+	end
+
+	s_xray_noise.remove = function(self, section)
+		for k, v in pairs(self.children) do
+			v.rmempty = true
+			v.validate = nil
+		end
+		TypedSection.remove(self, section)
+	end
+
+	o = s_xray_noise:option(Flag, "enabled", translate("Enable"))
+	o.default = 1
+	o.rmempty = false
+
+	o = s_xray_noise:option(ListValue, "type", translate("Type"))
+	o:value("rand", "rand")
+	o:value("str", "str")
+	o:value("base64", "base64")
+
+	o = s_xray_noise:option(Value, "packet", translate("Packet"))
+	o.datatype = "minlength(1)"
+	o.rmempty = false
+
+	o = s_xray_noise:option(Value, "delay", translate("Delay (ms)"))
+	o.datatype = "or(uinteger,portrange)"
+	o.rmempty = false
 end
 
 if has_singbox then
@@ -204,8 +242,10 @@ if has_singbox then
 	o.rmempty = false
 
 	o = s:option(Value, "geoip_url", translate("Custom geoip URL"))
-	o.default = "https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db"
-	o:value("https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db")
+	o.default = "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.db"
+	o:value("https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.db")
+	o:value("https://github.com/1715173329/sing-geoip/releases/latest/download/geoip.db")
+	o:value("https://github.com/lyc8503/sing-box-rules/releases/latest/download/geoip.db")
 	o.rmempty = false
 
 	o = s:option(Value, "geosite_path", translate("Custom geosite Path"))
@@ -213,8 +253,10 @@ if has_singbox then
 	o.rmempty = false
 
 	o = s:option(Value, "geosite_url", translate("Custom geosite URL"))
-	o.default = "https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db"
-	o:value("https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db")
+	o.default = "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.db"
+	o:value("https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.db")
+	o:value("https://github.com/1715173329/sing-geosite/releases/latest/download/geosite.db")
+	o:value("https://github.com/lyc8503/sing-box-rules/releases/latest/download/geosite.db")
 	o.rmempty = false
 
 	o = s:option(Button, "_remove_resource", translate("Remove resource files"))

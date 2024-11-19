@@ -21,10 +21,12 @@ function index()
 	entry({"admin", "services", appname, "reset_config"}, call("reset_config")).leaf = true
 	entry({"admin", "services", appname, "show"}, call("show_menu")).leaf = true
 	entry({"admin", "services", appname, "hide"}, call("hide_menu")).leaf = true
-	if uci:get(appname, "@global[0]", "hide_from_luci") == "1" then
-		return
+	local e
+	if uci:get(appname, "@global[0]", "hide_from_luci") ~= "1" then
+		e = entry({"admin", "services", appname}, alias("admin", "services", appname, "settings"), _("Pass Wall"), -1)
+	else
+		e = entry({"admin", "services", appname}, alias("admin", "services", appname, "settings"), nil, -1)
 	end
-	e = entry({"admin", "services", appname}, alias("admin", "services", appname, "settings"), _("Pass Wall"), -1)
 	e.dependent = true
 	e.acl_depends = { "luci-app-passwall" }
 	--[[ Client ]]
@@ -211,7 +213,12 @@ end
 
 function index_status()
 	local e = {}
-	e.dns_mode_status = luci.sys.call("netstat -apn | grep ':15353 ' >/dev/null") == 0
+	local dns_shunt = uci:get(appname, "@global[0]", "dns_shunt") or "dnsmasq"
+	if dns_shunt == "smartdns" then
+		e.dns_mode_status = luci.sys.call("pidof smartdns >/dev/null") == 0
+	else
+		e.dns_mode_status = luci.sys.call("netstat -apn | grep ':15353 ' >/dev/null") == 0
+	end
 	e.haproxy_status = luci.sys.call(string.format("/bin/busybox top -bn1 | grep -v grep | grep '%s/bin/' | grep haproxy >/dev/null", appname)) == 0
 	e["tcp_node_status"] = luci.sys.call("/bin/busybox top -bn1 | grep -v 'grep' | grep '/tmp/etc/passwall/bin/' | grep 'default' | grep 'TCP' >/dev/null") == 0
 
@@ -250,19 +257,20 @@ function connect_status()
 	local e = {}
 	e.use_time = ""
 	local url = luci.http.formvalue("url")
-	local is_baidu = string.find(url, "baidu")
-	local pw_switch = uci:get(appname, "@global[0]", "enabled")
-	local chn_list = uci:get(appname, "@global[0]", "chn_list")
-	local socks_port = uci:get(appname, "@global[0]", "tcp_node_socks_port")
-	if pw_switch ~= 0 then
-		if chn_list == "proxy" then
-			if is_baidu ~= nil then
-				url = "--socks5 127.0.0.1:" .. socks_port .. " " .. url
-			end
-		else
-			if is_baidu == nil then
-				url = "--socks5 127.0.0.1:" .. socks_port .. " " .. url
-			end
+	local baidu = string.find(url, "baidu")
+	local enabled = uci:get(appname, "@global[0]", "enabled") or "0"
+	local chn_list = uci:get(appname, "@global[0]", "chn_list") or "direct"
+	local gfw_list = uci:get(appname, "@global[0]", "use_gfw_list") or "1"
+	local proxy_mode = uci:get(appname, "@global[0]", "tcp_proxy_mode") or "proxy"
+	local socks_port = uci:get(appname, "@global[0]", "tcp_node_socks_port") or "1070"
+	local local_proxy = uci:get(appname, "@global[0]", "localhost_proxy") or "1"
+	if enabled == "1" and local_proxy == "0" then
+		if (chn_list == "proxy" and gfw_list == "0" and proxy_mode ~= "proxy" and baidu ~= nil) or (chn_list == "0" and gfw_list == "0" and proxy_mode == "proxy") then
+		-- 中国列表+百度 or 全局
+			url = "-x socks5h://127.0.0.1:" .. socks_port .. " " .. url
+		elseif baidu == nil then
+		-- 其他代理模式+百度以外网站
+			url = "-x socks5h://127.0.0.1:" .. socks_port .. " " .. url
 		end
 	end
 	local result = luci.sys.exec('curl --connect-timeout 3 -o /dev/null -I -sk -w "%{http_code}:%{time_appconnect}" ' .. url)

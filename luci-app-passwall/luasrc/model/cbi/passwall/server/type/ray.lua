@@ -109,7 +109,7 @@ o = s:option(ListValue, option_name("flow"), translate("flow"))
 o.default = ""
 o:value("", translate("Disable"))
 o:value("xtls-rprx-vision")
-o:depends({ [option_name("protocol")] = "vless", [option_name("tls")] = true, [option_name("transport")] = "tcp" })
+o:depends({ [option_name("protocol")] = "vless", [option_name("tls")] = true, [option_name("transport")] = "raw" })
 
 o = s:option(Flag, option_name("tls"), translate("TLS"))
 o.default = 0
@@ -154,9 +154,12 @@ o:depends({ [option_name("reality")] = true })
 
 o = s:option(ListValue, option_name("alpn"), translate("alpn"))
 o.default = "h2,http/1.1"
-o:value("h2,http/1.1")
+o:value("h3")
 o:value("h2")
+o:value("h3,h2")
 o:value("http/1.1")
+o:value("h2,http/1.1")
+o:value("h3,h2,http/1.1")
 o:depends({ [option_name("tls")] = true })
 
 -- o = s:option(Value, option_name("minversion"), translate("minversion"))
@@ -195,7 +198,7 @@ o.validate = function(self, value, t)
 end
 
 o = s:option(ListValue, option_name("transport"), translate("Transport"))
-o:value("tcp", "TCP")
+o:value("raw", "RAW")
 o:value("mkcp", "mKCP")
 o:value("ws", "WebSocket")
 o:value("h2", "HTTP/2")
@@ -203,6 +206,7 @@ o:value("ds", "DomainSocket")
 o:value("quic", "QUIC")
 o:value("grpc", "gRPC")
 o:value("httpupgrade", "HttpUpgrade")
+o:value("xhttp", "XHTTP")
 o:depends({ [option_name("protocol")] = "vmess" })
 o:depends({ [option_name("protocol")] = "vless" })
 o:depends({ [option_name("protocol")] = "socks" })
@@ -225,6 +229,22 @@ o = s:option(Value, option_name("httpupgrade_path"), translate("HttpUpgrade Path
 o.placeholder = "/"
 o:depends({ [option_name("transport")] = "httpupgrade" })
 
+-- [[ SplitHTTP部分 ]]--
+o = s:option(Value, option_name("xhttp_host"), translate("XHTTP Host"))
+o:depends({ [option_name("transport")] = "xhttp" })
+
+o = s:option(Value, option_name("xhttp_path"), translate("XHTTP Path"))
+o.placeholder = "/"
+o:depends({ [option_name("transport")] = "xhttp" })
+
+o = s:option(Value, option_name("xhttp_maxuploadsize"), translate("maxUploadSize"))
+o.default = "1000000"
+o:depends({ [option_name("transport")] = "xhttp" })
+
+o = s:option(Value, option_name("xhttp_maxconcurrentuploads"), translate("maxConcurrentUploads"))
+o.default = "10"
+o:depends({ [option_name("transport")] = "xhttp" })
+
 -- [[ HTTP/2部分 ]]--
 
 o = s:option(Value, option_name("h2_host"), translate("HTTP/2 Host"))
@@ -239,7 +259,7 @@ o:depends({ [option_name("transport")] = "h2" })
 o = s:option(ListValue, option_name("tcp_guise"), translate("Camouflage Type"))
 o:value("none", "none")
 o:value("http", "http")
-o:depends({ [option_name("transport")] = "tcp" })
+o:depends({ [option_name("transport")] = "raw" })
 
 -- HTTP域名
 o = s:option(DynamicList, option_name("tcp_guise_http_host"), translate("HTTP Host"))
@@ -313,8 +333,8 @@ o.default = "0"
 
 -- [[ Fallback部分 ]]--
 o = s:option(Flag, option_name("fallback"), translate("Fallback"))
-o:depends({ [option_name("protocol")] = "vless", [option_name("transport")] = "tcp" })
-o:depends({ [option_name("protocol")] = "trojan", [option_name("transport")] = "tcp" })
+o:depends({ [option_name("protocol")] = "vless", [option_name("transport")] = "raw" })
+o:depends({ [option_name("protocol")] = "trojan", [option_name("transport")] = "raw" })
 
 --[[
 o = s:option(Value, option_name("fallback_alpn"), "Fallback alpn")
